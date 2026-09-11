@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VSL Player - Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%232563eb'/%3E%3Cpolygon points='40,28 40,72 74,50' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --blue: #2563eb;
+    --blue-dark: #1d4ed8;
+    --blue-light: #eff4ff;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --text-light: #9ca3af;
+    --danger: #dc2626;
+    --danger-light: #fee2e2;
+    --green: #16a34a;
+    --radius: 10px;
+    --sidebar-w: 224px;
+    --header-h: 60px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 14px; -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  h1, h2, h3 { margin: 0; }
+  a { color: inherit; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+  /* ---------- Layout ---------- */
+  .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+  .topbar {
+    height: var(--header-h); background: #fff; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; }
+  .logo-icon {
+    width: 30px; height: 30px; border-radius: 8px; background: var(--blue);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .logo-icon svg { width: 14px; height: 14px; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--blue);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  .body-wrap { display: flex; flex: 1; min-height: calc(100vh - var(--header-h)); }
+  .sidebar {
+    width: var(--sidebar-w); flex-shrink: 0; background: #fff; border-right: 1px solid var(--border);
+    padding: 16px 12px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: none; border: none; padding: 10px 12px; border-radius: 8px;
+    color: var(--text-muted); font-weight: 600; font-size: 14px; cursor: pointer;
+    margin-bottom: 4px; transition: background 0.15s, color 0.15s;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--blue-light); color: var(--blue); }
+  .nav-item .ic { font-size: 16px; width: 18px; text-align: center; }
+  .main-content { flex: 1; padding: 28px 32px; min-width: 0; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---------- Generic ---------- */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+  .btn-primary, .btn-secondary, .btn-danger, .btn-ghost {
+    display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+    padding: 9px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+    font-weight: 600; font-size: 13.5px; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-dark); }
+  .btn-secondary { background: #fff; color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-danger { background: #fff; color: var(--danger); border-color: var(--border); }
+  .btn-danger:hover { background: var(--danger-light); border-color: var(--danger); }
+  .btn-ghost { background: none; color: var(--text-muted); border: none; padding: 6px 10px; }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); }
+  .btn-block { width: 100%; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .view-header h1 { font-size: 22px; font-weight: 800; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .tab {
+    background: none; border: none; padding: 10px 16px; cursor: pointer; font-weight: 600;
+    color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 13.5px;
+  }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .table-card { overflow-x: auto; }
+  table.video-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+  .video-table th {
+    text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--text-light); padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 700;
+  }
+  .video-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .video-table tr:last-child td { border-bottom: none; }
+  .video-table tr:hover { background: #fafbfc; }
+  .thumb {
+    width: 74px; height: 42px; border-radius: 6px; object-fit: cover; background: #111;
+    display: block; cursor: pointer; border: 1px solid var(--border);
+  }
+  .v-name { font-weight: 600; cursor: pointer; }
+  .v-name:hover { color: var(--blue); }
+  .v-date, .v-plays { color: var(--text-muted); white-space: nowrap; }
+  .row-actions { display: flex; gap: 4px; }
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: #fff;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted);
+  }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn.danger:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+  .empty-state .ic { font-size: 40px; margin-bottom: 12px; }
+  .empty-state h3 { color: var(--text); margin-bottom: 6px; }
+
+  /* ---------- Modals ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(17,24,39,0.5); display: flex;
+    align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: #fff; border-radius: 14px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+  .upload-modal { max-width: 480px; }
+  .embed-modal { max-width: 620px; }
+  .analytics-modal { max-width: 460px; }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { font-size: 17px; font-weight: 800; }
+  .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 22px; }
+
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 34px 16px; text-align: center;
+    cursor: pointer; transition: all 0.15s; color: var(--text-muted);
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--blue); background: var(--blue-light); color: var(--blue); }
+  .dropzone .ic { font-size: 30px; margin-bottom: 8px; }
+  .dropzone p { margin: 0; font-size: 13px; font-weight: 600; }
+  .dropzone .sub { font-size: 12px; color: var(--text-light); margin-top: 4px; font-weight: 400; }
+
+  .divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--text-light); font-size: 12px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 6px; color: var(--text); }
+  .form-group input[type=text], .form-group input[type=url], .form-group input[type=password], .form-group textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; outline: none;
+  }
+  .form-group input:focus, .form-group textarea:focus { border-color: var(--blue); }
+  .form-hint { font-size: 11.5px; color: var(--text-light); margin-top: 4px; }
+
+  /* ---------- Edit page ---------- */
+  .edit-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+  .video-name-input {
+    flex: 1; font-size: 18px; font-weight: 700; border: 1px solid transparent; background: none;
+    padding: 6px 10px; border-radius: 8px; outline: none; min-width: 0;
+  }
+  .video-name-input:hover, .video-name-input:focus { border-color: var(--border); background: #fff; }
+  .edit-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .save-indicator { font-size: 12px; color: var(--green); font-weight: 600; opacity: 0; transition: opacity 0.3s; }
+  .save-indicator.show { opacity: 1; }
+
+  .edit-body { display: flex; gap: 20px; align-items: flex-start; }
+  .config-panel { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+  .accordion { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .accordion-head {
+    width: 100%; background: #fff; border: none; padding: 13px 16px; display: flex;
+    align-items: center; justify-content: space-between; cursor: pointer; font-weight: 700; font-size: 13.5px;
+  }
+  .accordion-head .chev { transition: transform 0.2s; color: var(--text-light); font-size: 11px; }
+  .accordion.open .accordion-head .chev { transform: rotate(180deg); }
+  .accordion-body { padding: 4px 16px 16px; display: none; }
+  .accordion.open .accordion-body { display: block; }
+
+  .field-row { margin-bottom: 14px; }
+  .field-row label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .field-value { color: var(--text-muted); font-weight: 500; }
+  .field-row input[type=text], .field-row input[type=url], .field-row input[type=number], .field-row select, .field-row textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; outline: none;
+  }
+  .field-row input:focus, .field-row select:focus, .field-row textarea:focus { border-color: var(--blue); }
+  .field-row input[type=range] { width: 100%; accent-color: var(--blue); }
+  .color-input { display: flex; gap: 8px; align-items: center; }
+  .color-input input[type=color] { width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
+  .color-input input[type=text] { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; outline: none; }
+
+  .subsection-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-light); font-weight: 700; margin: 14px 0 8px; }
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 13px; font-weight: 500;
+  }
+  .switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: #d1d5db; border-radius: 22px; transition: 0.2s; }
+  .slider::before { content: ''; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  .switch input:checked + .slider { background: var(--blue); }
+  .switch input:checked + .slider::before { transform: translateX(16px); }
+
+  .preview-area { flex: 1; min-width: 0; position: sticky; top: 80px; }
+  .preview-toolbar { display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; }
+  .device-btn {
+    padding: 7px 16px; border-radius: 7px; border: 1px solid var(--border); background: #fff;
+    cursor: pointer; font-weight: 600; font-size: 12.5px; color: var(--text-muted);
+  }
+  .device-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .preview-frame-wrap {
+    background: #000; border-radius: 14px; overflow: hidden; margin: 0 auto; position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  }
+  .preview-frame-wrap.device-desktop { width: 100%; max-width: 720px; aspect-ratio: 16/9; }
+  .preview-frame-wrap.device-mobile { width: 320px; aspect-ratio: 9/16; }
+  .preview-frame-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
+
+  /* ---------- Embed modal specifics ---------- */
+  .embed-toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-weight: 600; font-size: 13px; }
+  .embed-tabs { margin-bottom: 12px; }
+  .code-block-wrap { position: relative; margin-bottom: 16px; }
+  .code-block {
+    background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 10px; font-size: 12px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    max-height: 220px; margin: 0;
+  }
+  .btn-copy { position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 12px; }
+  .embed-field { margin-bottom: 16px; }
+  .embed-field label { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
+  .embed-field textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    outline: none; resize: vertical; font-family: inherit;
+  }
+  .embed-field textarea:focus { border-color: var(--blue); }
+  .embed-security { padding-top: 14px; border-top: 1px solid var(--border); }
+  .input-with-btn { display: flex; gap: 8px; }
+  .input-with-btn input {
+    flex: 1; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; outline: none;
+    background: var(--bg); color: var(--text-muted); font-size: 12.5px;
+  }
+  .embed-preview label { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 8px; }
+  .embed-preview-frame { background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 16/9; max-width: 360px; }
+  .embed-preview-frame iframe { width: 100%; height: 100%; border: none; }
+
+  /* ---------- Analytics modal ---------- */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-box { background: var(--bg); border-radius: 10px; padding: 14px; }
+  .stat-box .num { font-size: 22px; font-weight: 800; }
+  .stat-box .lbl { font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+  .retention-chart { display: flex; align-items: flex-end; gap: 3px; height: 90px; padding: 10px; background: var(--bg); border-radius: 10px; }
+  .retention-chart .bar { flex: 1; background: var(--blue); border-radius: 2px 2px 0 0; opacity: 0.85; }
+
+  /* ---------- Security / Settings pages ---------- */
+  .settings-section { max-width: 640px; margin-bottom: 24px; padding: 20px 22px; }
+  .settings-section h3 { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+  .settings-section .desc { color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px; }
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between; padding: 12px 0;
+    border-top: 1px solid var(--border);
+  }
+  .settings-row:first-of-type { border-top: none; }
+  .settings-row .row-label { font-weight: 600; font-size: 13.5px; }
+  .settings-row .row-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 400; }
+
+  @media (max-width: 900px) {
+    .edit-body { flex-direction: column; }
+    .config-panel { width: 100%; }
+    .preview-area { position: static; width: 100%; }
+    .sidebar { width: 64px; padding: 16px 8px; }
+    .nav-item span.label { display: none; }
+    .main-content { padding: 20px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      VSL Player
+    </div>
+    <div class="avatar" title="Minha conta">U</div>
+  </header>
+
+  <div class="body-wrap">
+    <aside class="sidebar">
+      <nav>
+        <button class="nav-item active" data-view="library"><span class="ic">🎬</span><span class="label">Meus Vídeos</span></button>
+        <button class="nav-item" data-view="security"><span class="ic">🔒</span><span class="label">Segurança</span></button>
+        <button class="nav-item" data-view="settings"><span class="ic">⚙️</span><span class="label">Configurações</span></button>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- ===================== LIBRARY VIEW ===================== -->
+      <section id="view-library" class="view active">
+        <div class="view-header">
+          <h1>Meus Vídeos</h1>
+          <button class="btn-primary" id="btnNewUpload">+ Novo vídeo</button>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="library">Biblioteca</button>
+          <button class="tab" data-tab="top">Top vídeos</button>
+          <button class="tab" data-tab="trash">Lixeira</button>
+        </div>
+        <div class="card table-card">
+          <table class="video-table">
+            <thead>
+              <tr><th></th><th>Nome</th><th>Data</th><th>Plays</th><th style="text-align:right;">Ações</th></tr>
+            </thead>
+            <tbody id="videoTableBody"></tbody>
+          </table>
+          <div id="emptyState" class="empty-state hidden">
+            <div class="ic">🎬</div>
+            <h3>Nenhum vídeo por aqui</h3>
+            <p>Envie seu primeiro vídeo para começar a criar sua VSL.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== SECURITY VIEW ===================== -->
+      <section id="view-security" class="view">
+        <div class="view-header"><h1>Segurança</h1></div>
+        <div class="card settings-section">
+          <h3>Restrição de domínio</h3>
+          <div class="desc">Permita que seus vídeos sejam reproduzidos apenas nos domínios listados abaixo.</div>
+          <div class="settings-row">
+            <div><div class="row-label">Ativar whitelist de domínios</div><div class="row-sub">Bloqueia reprodução fora dos domínios permitidos</div></div>
+            <label class="switch"><input type="checkbox" id="secDomainToggle"><span class="slider"></span></label>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Domínios permitidos (um por linha)</label>
+            <textarea id="secDomainList" rows="3" placeholder="meusite.com&#10;checkout.meusite.com" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;outline:none;resize:vertical;"></textarea>
+          </div>
+        </div>
+        <div class="card settings-section">
+          <h3>Proteção por senha</h3>
+          <div class="desc">Exija uma senha para assistir aos vídeos.</div>
+          <div class="settings-row">
+            <div><div class="row-label">Ativar proteção por senha</div></div>
+            <label class="switch"><input type="checkbox" id="secPassToggle"><span class="slider"></span></label>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Senha de acesso</label>
+            <input type="password" id="secPassValue" placeholder="••••••••">
+          </div>
+        </div>
+        <div class="card settings-section">
+          <h3>Marca d'água</h3>
+          <div class="desc">Exibe um texto sobre o vídeo para evitar cópias não autorizadas.</div>
+          <div class="settings-row">
+            <div><div class="row-label">Ativar marca d'água</div></div>
+            <label class="switch"><input type="checkbox" id="secWatermarkToggle"><span class="slider"></span></label>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Texto da marca d'água</label>
+            <input type="text" id="secWatermarkText" placeholder="© Minha Empresa">
+          </div>
+        </div>
+        <button class="btn-primary" id="btnSaveSecurity">Salvar alterações</button>
+        <span class="save-indicator" id="secSaveIndicator">Salvo ✓</span>
+      </section>
+
+      <!-- ===================== SETTINGS VIEW ===================== -->
+      <section id="view-settings" class="view">
+        <div class="view-header"><h1>Configurações</h1></div>
+        <div class="card settings-section">
+          <h3>Preferências do player</h3>
+          <div class="desc">Cor padrão usada ao criar novos vídeos.</div>
+          <div class="form-group">
+            <label>Cor principal padrão</label>
+            <div class="color-input" style="max-width:220px;">
+              <input type="color" id="defaultColorPicker">
+              <input type="text" id="defaultColorText">
+            </div>
+          </div>
+        </div>
+        <div class="card settings-section">
+          <h3>Armazenamento local</h3>
+          <div class="desc">Todos os dados deste app ficam salvos no navegador (localStorage), sem servidor.</div>
+          <div class="settings-row">
+            <div><div class="row-label">Espaço utilizado</div></div>
+            <div id="storageUsage" class="row-sub">0 KB</div>
+          </div>
+          <button class="btn-danger" id="btnClearAll" style="margin-top:12px;">Limpar todos os dados</button>
+        </div>
+        <div class="card settings-section">
+          <h3>Sobre</h3>
+          <div class="desc">VSL Player — clone educacional de player de vídeo para vendas, 100% front-end.</div>
+        </div>
+        <button class="btn-primary" id="btnSaveSettings">Salvar alterações</button>
+        <span class="save-indicator" id="settingsSaveIndicator">Salvo ✓</span>
+      </section>
+
+      <!-- ===================== EDIT VIEW ===================== -->
+      <section id="view-edit" class="view">
+        <div class="edit-header">
+          <button class="btn-ghost" id="btnBackToLibrary">← Voltar</button>
+          <input type="text" id="editVideoName" class="video-name-input" placeholder="Nome do vídeo">
+          <span class="save-indicator" id="editSaveIndicator">Salvo ✓</span>
+          <div class="edit-header-actions">
+            <button class="btn-secondary" id="btnEmbedTop">🔗 Embed</button>
+          </div>
+        </div>
+
+        <div class="edit-body">
+          <aside class="config-panel" id="configPanel">
+
+            <div class="accordion open" data-panel="style">
+              <button class="accordion-head" type="button"><span>🎨 Estilo</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="field-row">
+                  <label>Cor principal</label>
+                  <div class="color-input">
+                    <input type="color" data-path="style.primaryColor" class="color-swatch">
+                    <input type="text" data-path="style.primaryColor" class="color-hex">
+                  </div>
+                </div>
+                <div class="field-row">
+                  <label>Cor de fundo</label>
+                  <div class="color-input">
+                    <input type="color" data-path="style.background" class="color-swatch">
+                    <input type="text" data-path="style.background" class="color-hex">
+                  </div>
+                </div>
+                <div class="field-row">
+                  <label>Cantos arredondados <span class="field-value" data-value-for="style.borderRadius" data-unit="px">8px</span></label>
+                  <input type="range" min="0" max="24" data-path="style.borderRadius">
+                </div>
+                <div class="subsection-title">Controles</div>
+                <div class="toggle-row"><span>Play grande (central)</span><label class="switch"><input type="checkbox" data-path="style.controls.bigPlay"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Play pequeno (barra)</span><label class="switch"><input type="checkbox" data-path="style.controls.smallPlay"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Desativar pausa</span><label class="switch"><input type="checkbox" data-path="style.controls.disablePause"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Barra de progresso</span><label class="switch"><input type="checkbox" data-path="style.controls.progressBar"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Tempo (contador)</span><label class="switch"><input type="checkbox" data-path="style.controls.time"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Voltar 10s</span><label class="switch"><input type="checkbox" data-path="style.controls.back10"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Avançar 10s</span><label class="switch"><input type="checkbox" data-path="style.controls.forward10"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Volume</span><label class="switch"><input type="checkbox" data-path="style.controls.volume"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Tela cheia</span><label class="switch"><input type="checkbox" data-path="style.controls.fullscreen"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Velocidade</span><label class="switch"><input type="checkbox" data-path="style.controls.speed"><span class="slider"></span></label></div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="smartProgress">
+              <button class="accordion-head" type="button"><span>📊 Progresso Inteligente</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Ativar</span><label class="switch"><input type="checkbox" data-path="smartProgress.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Cor da barra</label>
+                  <div class="color-input">
+                    <input type="color" data-path="smartProgress.color" class="color-swatch">
+                    <input type="text" data-path="smartProgress.color" class="color-hex">
+                  </div>
+                </div>
+                <div class="field-row">
+                  <label>Altura <span class="field-value" data-value-for="smartProgress.height" data-unit="px">5px</span></label>
+                  <input type="range" min="2" max="16" data-path="smartProgress.height">
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="smartAutoplay">
+              <button class="accordion-head" type="button"><span>▶️ Smart Autoplay</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Ativar autoplay</span><label class="switch"><input type="checkbox" data-path="smartAutoplay.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Texto de overlay (som)</label>
+                  <input type="text" data-path="smartAutoplay.overlayText">
+                </div>
+                <div class="field-row">
+                  <label>Trecho inicial (s) <span class="field-value" data-value-for="smartAutoplay.initialSnippet" data-unit="s">3s</span></label>
+                  <input type="range" min="0" max="15" data-path="smartAutoplay.initialSnippet">
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="actionButton">
+              <button class="accordion-head" type="button"><span>🛒 Botões de Ação</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Ativar botão</span><label class="switch"><input type="checkbox" data-path="actionButton.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Texto do botão</label>
+                  <input type="text" data-path="actionButton.text">
+                </div>
+                <div class="field-row">
+                  <label>Subtexto</label>
+                  <input type="text" data-path="actionButton.subtext">
+                </div>
+                <div class="field-row">
+                  <label>Link de checkout</label>
+                  <input type="text" data-path="actionButton.checkoutLink" placeholder="https://checkout.com/...">
+                </div>
+                <div class="field-row">
+                  <label>Tempo pra aparecer (s) <span class="field-value" data-value-for="actionButton.timeToAppear" data-unit="s">5s</span></label>
+                  <input type="range" min="0" max="120" data-path="actionButton.timeToAppear">
+                </div>
+                <div class="field-row">
+                  <label>Cor do botão</label>
+                  <div class="color-input">
+                    <input type="color" data-path="actionButton.color" class="color-swatch">
+                    <input type="text" data-path="actionButton.color" class="color-hex">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="continueWatching">
+              <button class="accordion-head" type="button"><span>⏯️ Continuar Assistindo</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Ativar</span><label class="switch"><input type="checkbox" data-path="continueWatching.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Mensagem</label>
+                  <input type="text" data-path="continueWatching.message">
+                </div>
+                <div class="field-row">
+                  <label>Texto botão continuar</label>
+                  <input type="text" data-path="continueWatching.continueText">
+                </div>
+                <div class="field-row">
+                  <label>Texto botão reiniciar</label>
+                  <input type="text" data-path="continueWatching.restartText">
+                </div>
+                <div class="field-row">
+                  <label>Cor</label>
+                  <div class="color-input">
+                    <input type="color" data-path="continueWatching.color" class="color-swatch">
+                    <input type="text" data-path="continueWatching.color" class="color-hex">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="pixels">
+              <button class="accordion-head" type="button"><span>📡 Pixels</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Ativar pixel</span><label class="switch"><input type="checkbox" data-path="pixels.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Pixel ID</label>
+                  <input type="text" data-path="pixels.pixelId" placeholder="000000000000000">
+                </div>
+                <div class="field-row">
+                  <label>Disparar em (% do vídeo)</label>
+                  <input type="text" data-path="pixels.firePercentages" data-type="csv" placeholder="25, 50, 75, 95">
+                  <div class="form-hint">Porcentagens separadas por vírgula</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="accordion" data-panel="playback">
+              <button class="accordion-head" type="button"><span>⚡ Opções de Reprodução</span><span class="chev">▾</span></button>
+              <div class="accordion-body">
+                <div class="toggle-row"><span>Smart pause</span><label class="switch"><input type="checkbox" data-path="playback.smartPause"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Recomeçar ao terminar</span><label class="switch"><input type="checkbox" data-path="playback.restart"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Velocidade</label>
+                  <select data-path="playback.speed">
+                    <option value="auto">Automática</option>
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                  </select>
+                </div>
+                <div class="toggle-row"><span>Tela cheia (desktop)</span><label class="switch"><input type="checkbox" data-path="playback.fullscreenDesktop"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Tela cheia (mobile)</span><label class="switch"><input type="checkbox" data-path="playback.fullscreenMobile"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Picture-in-Picture</span><label class="switch"><input type="checkbox" data-path="playback.pip"><span class="slider"></span></label></div>
+              </div>
+            </div>
+
+          </aside>
+
+          <div class="preview-area">
+            <div class="preview-toolbar">
+              <button class="device-btn active" data-device="desktop">🖥️ Desktop</button>
+              <button class="device-btn" data-device="mobile">📱 Mobile</button>
+            </div>
+            <div class="preview-frame-wrap device-desktop" id="previewFrameWrap">
+              <iframe id="previewIframe" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ===================== UPLOAD MODAL ===================== -->
+<div id="uploadModal" class="modal-overlay hidden">
+  <div class="modal upload-modal">
+    <div class="modal-header"><h2>Novo vídeo</h2><button class="modal-close" data-close="uploadModal">&times;</button></div>
+    <div class="modal-body">
+      <div class="dropzone" id="dropzone">
+        <div class="ic">⬆️</div>
+        <p>Arraste um vídeo aqui ou clique para selecionar</p>
+        <div class="sub">MP4, WebM ou similar</div>
+        <input type="file" id="fileInput" accept="video/*" hidden>
+      </div>
+      <div class="divider"><span>ou cole uma URL</span></div>
+      <div class="form-group">
+        <label>URL do vídeo (blob ou link direto)</label>
+        <input type="text" id="urlInput" placeholder="https://... ou blob:https://...">
+      </div>
+      <div class="form-group">
+        <label>Nome do vídeo</label>
+        <input type="text" id="nameInput" placeholder="Meu vídeo de vendas">
+      </div>
+      <button class="btn-primary btn-block" id="btnConfirmUpload">Adicionar vídeo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== EMBED MODAL ===================== -->
+<div id="embedModal" class="modal-overlay hidden">
+  <div class="modal embed-modal">
+    <div class="modal-header"><h2>Embed do vídeo</h2><button class="modal-close" data-close="embedModal">&times;</button></div>
+    <div class="modal-body">
+      <div class="embed-toggle-row">
+        <label class="switch"><input type="checkbox" id="embedResponsive" checked><span class="slider"></span></label>
+        <span>Vídeo Responsivo</span>
+      </div>
+      <div class="tabs embed-tabs">
+        <button class="tab active" data-embed-tab="recommended">Recomendado</button>
+        <button class="tab" data-embed-tab="javascript">JavaScript</button>
+        <button class="tab" data-embed-tab="iframe">iFrame</button>
+      </div>
+      <div class="code-block-wrap">
+        <pre class="code-block" id="embedCode"></pre>
+        <button class="btn-secondary btn-copy" id="btnCopyEmbed">Copiar código</button>
+      </div>
+      <div class="embed-field">
+        <label>Link direto</label>
+        <div class="input-with-btn">
+          <input type="text" id="embedDirectLink" readonly>
+          <button class="btn-secondary" id="btnCopyLink">Copiar</button>
+        </div>
+      </div>
+      <div class="embed-field embed-security">
+        <label>Domínios permitidos <span class="form-hint" style="display:inline;">(vazio = qualquer domínio)</span></label>
+        <textarea id="embedDomains" rows="2" placeholder="meusite.com&#10;checkout.meusite.com"></textarea>
+        <div class="form-hint">Um por linha. Só tem efeito se <code>PLAYER_SIGNING_SECRET</code> estiver configurado no deploy.</div>
+      </div>
+      <div class="embed-field embed-security" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div>
+          <div style="font-weight:600; font-size:12.5px;">Versão da chave: <span id="embedKeyVersion">1</span></div>
+          <div class="form-hint" style="margin-top:2px;">Revogar invalida todos os links já publicados deste vídeo.</div>
+        </div>
+        <button class="btn-danger" type="button" id="btnRevokeEmbeds">Revogar links antigos</button>
+      </div>
+      <div class="embed-preview">
+        <label>Preview</label>
+        <div class="embed-preview-frame"><iframe id="embedPreviewIframe" allow="autoplay; fullscreen"></iframe></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ANALYTICS MODAL ===================== -->
+<div id="analyticsModal" class="modal-overlay hidden">
+  <div class="modal analytics-modal">
+    <div class="modal-header"><h2 id="analyticsTitle">Analytics</h2><button class="modal-close" data-close="analyticsModal">&times;</button></div>
+    <div class="modal-body">
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num" id="statPlays">0</div><div class="lbl">Plays</div></div>
+        <div class="stat-box"><div class="num" id="statAvgWatch">0%</div><div class="lbl">Retenção média</div></div>
+      </div>
+      <div class="form-group"><label>Retenção por trecho do vídeo</label></div>
+      <div class="retention-chart" id="retentionChart"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ==================== Storage / model ==================== */
+  const STORAGE_KEY = 'vsl_videos';
+  const SECURITY_KEY = 'vsl_security';
+  const SETTINGS_KEY = 'vsl_settings';
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function defaultConfig() {
+    const defColor = getSettings().defaultColor || '#2563eb';
+    return {
+      style: {
+        primaryColor: defColor,
+        background: '#000000',
+        borderRadius: 8,
+        controls: {
+          bigPlay: true, smallPlay: true, disablePause: false, progressBar: true,
+          time: true, back10: true, forward10: true, volume: true, fullscreen: true, speed: true
+        }
+      },
+      smartProgress: { enabled: true, color: defColor, height: 5 },
+      smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som', initialSnippet: 3 },
+      actionButton: { enabled: false, text: 'Comprar agora', subtext: '', checkoutLink: '', timeToAppear: 5, color: defColor },
+      continueWatching: { enabled: false, message: 'Você estava assistindo este vídeo', continueText: 'Continuar', restartText: 'Recomeçar', color: defColor },
+      pixels: { enabled: false, pixelId: '', firePercentages: [25, 50, 75, 95] },
+      playback: { smartPause: true, restart: false, speed: 'auto', fullscreenDesktop: true, fullscreenMobile: true, pip: false }
+    };
+  }
+
+  function loadVideos() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      list.forEach(v => {
+        if (!Array.isArray(v.allowedDomains)) v.allowedDomains = [];
+        if (!v.embedKeyVersion) v.embedKeyVersion = 1;
+      });
+      return list;
+    } catch (e) { return []; }
+  }
+  function saveVideos() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.videos));
+    updateStorageUsage();
+  }
+  function getSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : { defaultColor: '#2563eb' };
+    } catch (e) { return { defaultColor: '#2563eb' }; }
+  }
+  function saveSettingsObj(obj) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj)); }
+  function getSecurity() {
+    try {
+      const raw = localStorage.getItem(SECURITY_KEY);
+      return raw ? JSON.parse(raw) : { domainToggle: false, domainList: '', passToggle: false, passValue: '', watermarkToggle: false, watermarkText: '' };
+    } catch (e) { return { domainToggle: false, domainList: '', passToggle: false, passValue: '', watermarkToggle: false, watermarkText: '' }; }
+  }
+  function saveSecurityObj(obj) { localStorage.setItem(SECURITY_KEY, JSON.stringify(obj)); }
+
+  const state = {
+    videos: loadVideos(),
+    view: 'library',
+    tab: 'library',
+    currentVideoId: null,
+    device: 'desktop'
+  };
+
+  function getPath(obj, path) { return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj); }
+  function setPath(obj, path, value) {
+    const keys = path.split('.');
+    let o = obj;
+    for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]];
+    o[keys[keys.length - 1]] = value;
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  /* ==================== Navigation ==================== */
+  const views = document.querySelectorAll('.view');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  function showView(name) {
+    state.view = name;
+    views.forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+    navItems.forEach(n => n.classList.toggle('active', n.dataset.view === name));
+    if (name === 'security') loadSecurityForm();
+    if (name === 'settings') loadSettingsForm();
+    if (name === 'library') renderLibrary();
+  }
+  navItems.forEach(btn => btn.addEventListener('click', () => showView(btn.dataset.view)));
+
+  /* ==================== Library rendering ==================== */
+  const tabs = document.querySelectorAll('.tabs .tab');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.tab = t.dataset.tab;
+    renderLibrary();
+  }));
+
+  function renderLibrary() {
+    const tbody = document.getElementById('videoTableBody');
+    const emptyState = document.getElementById('emptyState');
+    let list = state.videos.filter(v => state.tab === 'trash' ? v.deleted : !v.deleted);
+    if (state.tab === 'top') list = list.slice().sort((a, b) => b.plays - a.plays);
+    else list = list.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (list.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      emptyState.querySelector('h3').textContent = state.tab === 'trash' ? 'Lixeira vazia' : 'Nenhum vídeo por aqui';
+      emptyState.querySelector('p').textContent = state.tab === 'trash' ? 'Vídeos excluídos aparecerão aqui.' : 'Envie seu primeiro vídeo para começar a criar sua VSL.';
+      return;
+    }
+    emptyState.classList.add('hidden');
+
+    tbody.innerHTML = list.map(v => {
+      const thumb = v.poster ? v.poster : placeholderThumb(v.name);
+      const actions = state.tab === 'trash' ? `
+        <button class="icon-btn" data-action="restore" data-id="${v.id}" title="Restaurar">${iconRestore()}</button>
+        <button class="icon-btn danger" data-action="delete-forever" data-id="${v.id}" title="Excluir permanentemente">${iconTrash()}</button>
+      ` : `
+        <button class="icon-btn" data-action="analytics" data-id="${v.id}" title="Analytics">${iconChart()}</button>
+        <button class="icon-btn" data-action="embed" data-id="${v.id}" title="Embed">${iconCode()}</button>
+        <button class="icon-btn danger" data-action="delete" data-id="${v.id}" title="Excluir">${iconTrash()}</button>
+      `;
+      return `<tr>
+        <td><img class="thumb" src="${thumb}" data-action="edit" data-id="${v.id}" alt=""></td>
+        <td><span class="v-name" data-action="edit" data-id="${v.id}">${escapeHtml(v.name)}</span></td>
+        <td class="v-date">${formatDate(v.createdAt)}</td>
+        <td class="v-plays">${v.plays || 0}</td>
+        <td><div class="row-actions" style="justify-content:flex-end;">${actions}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('videoTableBody').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const id = el.dataset.id;
+    const action = el.dataset.action;
+    const video = state.videos.find(v => v.id === id);
+    if (!video) return;
+    if (action === 'edit') openEditor(id);
+    else if (action === 'embed') openEmbedModal(video);
+    else if (action === 'analytics') openAnalyticsModal(video);
+    else if (action === 'delete') { video.deleted = true; saveVideos(); renderLibrary(); }
+    else if (action === 'restore') { video.deleted = false; saveVideos(); renderLibrary(); }
+    else if (action === 'delete-forever') {
+      if (confirm('Excluir este vídeo permanentemente? Essa ação não pode ser desfeita.')) {
+        state.videos = state.videos.filter(v => v.id !== id);
+        saveVideos();
+        renderLibrary();
+      }
+    }
+  });
+
+  function placeholderThumb(name) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 160; canvas.height = 90;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 160, 90);
+    grad.addColorStop(0, '#1e293b'); grad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, 160, 90);
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath(); ctx.arc(80, 45, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.moveTo(74, 34); ctx.lineTo(74, 56); ctx.lineTo(94, 45); ctx.closePath(); ctx.fill();
+    return canvas.toDataURL('image/png');
+  }
+
+  /* ==================== Thumbnail from video ==================== */
+  function generateThumbnail(url) {
+    return new Promise((resolve) => {
+      const v = document.createElement('video');
+      v.crossOrigin = 'anonymous';
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      let done = false;
+      const finish = (val) => { if (!done) { done = true; resolve(val); } };
+      v.addEventListener('loadeddata', () => {
+        try { v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch (e) { capture(); }
+      });
+      v.addEventListener('seeked', capture);
+      function capture() {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 320; canvas.height = 180;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+          finish(canvas.toDataURL('image/jpeg', 0.75));
+        } catch (e) { finish(null); }
+      }
+      v.addEventListener('error', () => finish(null));
+      setTimeout(() => finish(null), 4000);
+      v.src = url;
+    });
+  }
+
+  /* ==================== Icons ==================== */
+  function iconChart() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>'; }
+  function iconCode() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'; }
+  function iconTrash() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'; }
+  function iconRestore() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>'; }
+
+  /* ==================== Upload modal ==================== */
+  const uploadModal = document.getElementById('uploadModal');
+  document.getElementById('btnNewUpload').addEventListener('click', () => openModal('uploadModal'));
+  document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.close)));
+  document.querySelectorAll('.modal-overlay').forEach(ov => ov.addEventListener('click', (e) => { if (e.target === ov) closeModal(ov.id); }));
+
+  function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+  function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const urlInput = document.getElementById('urlInput');
+  const nameInput = document.getElementById('nameInput');
+  let pendingFile = null;
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFileSelected(file);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) handleFileSelected(fileInput.files[0]);
+  });
+
+  function handleFileSelected(file) {
+    pendingFile = file;
+    urlInput.value = '';
+    dropzone.querySelector('p').textContent = '✓ ' + file.name;
+    if (!nameInput.value) nameInput.value = file.name.replace(/\.[^/.]+$/, '');
+  }
+
+  document.getElementById('btnConfirmUpload').addEventListener('click', async () => {
+    const btn = document.getElementById('btnConfirmUpload');
+    let url = '';
+    if (pendingFile) {
+      url = URL.createObjectURL(pendingFile);
+    } else if (urlInput.value.trim()) {
+      url = urlInput.value.trim();
+    } else {
+      alert('Selecione um arquivo ou informe uma URL de vídeo.');
+      return;
+    }
+    const name = nameInput.value.trim() || 'Vídeo sem título';
+
+    btn.disabled = true; btn.textContent = 'Processando...';
+    const poster = await generateThumbnail(url);
+
+    const video = {
+      id: uuid(),
+      name: name,
+      url: url,
+      poster: poster || placeholderThumb(name),
+      createdAt: new Date().toISOString(),
+      plays: 0,
+      deleted: false,
+      allowedDomains: [],
+      embedKeyVersion: 1,
+      config: defaultConfig()
+    };
+    state.videos.push(video);
+    saveVideos();
+
+    btn.disabled = false; btn.textContent = 'Adicionar vídeo';
+    resetUploadModal();
+    closeModal('uploadModal');
+    openEditor(video.id);
+  });
+
+  function resetUploadModal() {
+    pendingFile = null;
+    fileInput.value = '';
+    urlInput.value = '';
+    nameInput.value = '';
+    dropzone.querySelector('p').textContent = 'Arraste um vídeo aqui ou clique para selecionar';
+  }
+
+  /* ==================== Editor page ==================== */
+  const configPanel = document.getElementById('configPanel');
+  const previewIframe = document.getElementById('previewIframe');
+  const previewFrameWrap = document.getElementById('previewFrameWrap');
+  const editVideoName = document.getElementById('editVideoName');
+
+  function openEditor(id) {
+    state.currentVideoId = id;
+    const video = state.videos.find(v => v.id === id);
+    if (!video) return;
+    editVideoName.value = video.name;
+    fillConfigForm(video.config);
+    showView('edit');
+    updatePreview(true);
+  }
+
+  document.getElementById('btnBackToLibrary').addEventListener('click', () => showView('library'));
+
+  editVideoName.addEventListener('input', () => {
+    const video = getCurrentVideo();
+    if (!video) return;
+    video.name = editVideoName.value || 'Vídeo sem título';
+    saveVideos();
+    flashSaveIndicator('editSaveIndicator');
+  });
+
+  function getCurrentVideo() { return state.videos.find(v => v.id === state.currentVideoId); }
+
+  function fillConfigForm(config) {
+    configPanel.querySelectorAll('[data-path]').forEach(el => {
+      const val = getPath(config, el.dataset.path);
+      if (val === undefined || val === null) return;
+      if (el.type === 'checkbox') el.checked = !!val;
+      else if (el.dataset.type === 'csv') el.value = Array.isArray(val) ? val.join(', ') : String(val);
+      else el.value = val;
+    });
+    configPanel.querySelectorAll('[data-value-for]').forEach(span => {
+      const val = getPath(config, span.dataset.valueFor);
+      span.textContent = (val === undefined ? '' : val) + (span.dataset.unit || '');
+    });
+  }
+
+  function syncColorPair(el) {
+    const wrap = el.closest('.color-input');
+    if (!wrap) return;
+    wrap.querySelectorAll('[data-path]').forEach(inp => { if (inp !== el) inp.value = el.value; });
+  }
+
+  let previewDebounce = null;
+  configPanel.addEventListener('input', handleConfigChange);
+  configPanel.addEventListener('change', handleConfigChange);
+
+  function handleConfigChange(e) {
+    const el = e.target;
+    const path = el.dataset.path;
+    if (!path) return;
+    const video = getCurrentVideo();
+    if (!video) return;
+
+    let value;
+    if (el.dataset.type === 'csv') {
+      value = el.value.split(',').map(s => s.trim()).filter(s => s !== '').map(Number).filter(n => !isNaN(n));
+    } else if (el.type === 'checkbox') value = el.checked;
+    else if (el.type === 'range' || el.type === 'number') value = parseFloat(el.value);
+    else value = el.value;
+
+    setPath(video.config, path, value);
+
+    if (el.classList.contains('color-swatch') || el.classList.contains('color-hex')) syncColorPair(el);
+
+    const row = el.closest('.field-row');
+    if (row) {
+      const label = row.querySelector('[data-value-for]');
+      if (label) label.textContent = value + (label.dataset.unit || '');
+    }
+
+    saveVideos();
+    flashSaveIndicator('editSaveIndicator');
+    clearTimeout(previewDebounce);
+    previewDebounce = setTimeout(() => updatePreview(false), 350);
+  }
+
+  configPanel.addEventListener('click', (e) => {
+    const head = e.target.closest('.accordion-head');
+    if (!head) return;
+    head.closest('.accordion').classList.toggle('open');
+  });
+
+  document.querySelectorAll('.device-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.device = btn.dataset.device;
+      previewFrameWrap.classList.toggle('device-desktop', state.device === 'desktop');
+      previewFrameWrap.classList.toggle('device-mobile', state.device === 'mobile');
+    });
+  });
+
+  function buildEmbedParams(video) {
+    const c = video.config;
+    const params = new URLSearchParams();
+    if (video.url) params.set('v', video.url);
+    if (video.poster) params.set('poster', video.poster);
+    if (c.actionButton.enabled && c.actionButton.checkoutLink) {
+      params.set('cta_url', c.actionButton.checkoutLink);
+      params.set('cta_text', c.actionButton.text || 'Comprar agora');
+      params.set('cta_time', c.actionButton.timeToAppear ?? 5);
+      params.set('cta_color', c.actionButton.color || c.style.primaryColor);
+      if (c.actionButton.subtext) params.set('cta_sub', c.actionButton.subtext);
+    }
+    params.set('bar_color', (c.smartProgress.enabled ? c.smartProgress.color : c.style.primaryColor) || '#2563eb');
+    params.set('mute_text', c.smartAutoplay.overlayText || 'Toque para ativar o som');
+    params.set('autoplay', c.smartAutoplay.enabled ? '1' : '0');
+    // "id" e "kv" definem qual chave derivada assina este link (ver lib/hmac.js);
+    // "domains" (se houver) fica dentro do payload assinado, então não dá pra
+    // adulterar a restrição de domínio sem invalidar a assinatura.
+    params.set('id', video.id);
+    params.set('kv', String(video.embedKeyVersion || 1));
+    if (video.allowedDomains && video.allowedDomains.length) {
+      params.set('domains', video.allowedDomains.join(','));
+    }
+    return params;
+  }
+
+  // Pede pro backend (/api/sign-embed, protegido por Basic Auth) assinar os
+  // parâmetros com PLAYER_SIGNING_SECRET. Se a rota não existir (ex: testando
+  // com um servidor estático simples) ou a assinatura estiver desligada,
+  // volta null e o link é gerado sem "sig" (o middleware também deixa passar
+  // sem assinatura nesse caso — ver middleware.js).
+  async function signParams(paramsObj) {
+    try {
+      const res = await fetch('/api/sign-embed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params: paramsObj })
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.sig || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function buildSignedEmbedUrl(video) {
+    const params = buildEmbedParams(video);
+    const obj = {};
+    params.forEach((v, k) => { obj[k] = v; });
+    const sig = await signParams(obj);
+    if (sig) params.set('sig', sig);
+    return 'player.html?' + params.toString();
+  }
+
+  let previewToken = 0;
+  async function updatePreview(force) {
+    const video = getCurrentVideo();
+    if (!video) return;
+    const myToken = ++previewToken;
+    const src = await buildSignedEmbedUrl(video);
+    if (myToken !== previewToken) return; // uma atualização mais recente já está em andamento
+    if (force || previewIframe.dataset.src !== src) {
+      previewIframe.src = src;
+      previewIframe.dataset.src = src;
+    }
+    previewIframe.onload = () => {
+      video.plays = (video.plays || 0) + 1;
+      saveVideos();
+    };
+  }
+
+  function flashSaveIndicator(id) {
+    const el = document.getElementById(id);
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  /* ==================== Embed modal ==================== */
+  let embedVideoId = null;
+  let embedSignedUrl = '';
+  const embedResponsive = document.getElementById('embedResponsive');
+  const embedDomains = document.getElementById('embedDomains');
+  const embedKeyVersionSpan = document.getElementById('embedKeyVersion');
+  document.querySelectorAll('.embed-tabs .tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.embed-tabs .tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    renderEmbedCode();
+  }));
+  embedResponsive.addEventListener('change', renderEmbedCode);
+
+  document.getElementById('btnEmbedTop').addEventListener('click', () => {
+    const video = getCurrentVideo();
+    if (video) openEmbedModal(video);
+  });
+
+  async function openEmbedModal(video) {
+    embedVideoId = video.id;
+    embedSignedUrl = '';
+    document.querySelectorAll('.embed-tabs .tab').forEach(x => x.classList.remove('active'));
+    document.querySelector('.embed-tabs .tab[data-embed-tab="recommended"]').classList.add('active');
+    embedResponsive.checked = true;
+    embedDomains.value = (video.allowedDomains || []).join('\n');
+    embedKeyVersionSpan.textContent = video.embedKeyVersion || 1;
+    document.getElementById('embedCode').textContent = 'Gerando link assinado...';
+    document.getElementById('embedDirectLink').value = '';
+    openModal('embedModal');
+    await refreshEmbedSignedUrl(video);
+  }
+
+  async function refreshEmbedSignedUrl(video) {
+    const relativeUrl = await buildSignedEmbedUrl(video);
+    try { embedSignedUrl = new URL(relativeUrl, window.location.href).href; }
+    catch (e) { embedSignedUrl = relativeUrl; }
+    renderEmbedCode();
+  }
+
+  let embedDomainsDebounce = null;
+  embedDomains.addEventListener('input', () => {
+    const video = state.videos.find(v => v.id === embedVideoId);
+    if (!video) return;
+    video.allowedDomains = embedDomains.value.split('\n').map(d => d.trim()).filter(Boolean);
+    saveVideos();
+    clearTimeout(embedDomainsDebounce);
+    embedDomainsDebounce = setTimeout(() => refreshEmbedSignedUrl(video), 400);
+  });
+
+  document.getElementById('btnRevokeEmbeds').addEventListener('click', async () => {
+    const video = state.videos.find(v => v.id === embedVideoId);
+    if (!video) return;
+    if (!confirm('Isso invalida todos os links de embed já publicados deste vídeo. Você vai precisar copiar e substituir o embed atualizado onde ele estiver publicado. Continuar?')) return;
+    video.embedKeyVersion = (video.embedKeyVersion || 1) + 1;
+    saveVideos();
+    embedKeyVersionSpan.textContent = video.embedKeyVersion;
+    await refreshEmbedSignedUrl(video);
+    if (state.currentVideoId === video.id) updatePreview(true);
+  });
+
+  function renderEmbedCode() {
+    const video = state.videos.find(v => v.id === embedVideoId);
+    if (!video || !embedSignedUrl) return;
+    const url = embedSignedUrl;
+    const responsive = embedResponsive.checked;
+    const type = document.querySelector('.embed-tabs .tab.active').dataset.embedTab;
+    const uid = 'vsl-' + video.id.slice(0, 8);
+    let code = '';
+
+    if (type === 'iframe') {
+      code = responsive
+        ? `<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;">\n  <iframe src="${url}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen" allowfullscreen></iframe>\n</div>`
+        : `<iframe src="${url}" width="640" height="360" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+    } else if (type === 'javascript') {
+      code = `<script>\n(function(){\n  var c = document.currentScript;\n  var wrap = document.createElement('div');\n  wrap.style.cssText = ${responsive ? "'position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;'" : "'width:640px;max-width:100%;height:360px;'"};\n  var f = document.createElement('iframe');\n  f.src = "${url}";\n  f.style.cssText = ${responsive ? "'position:absolute;top:0;left:0;width:100%;height:100%;border:none;'" : "'width:100%;height:100%;border:none;'"};\n  f.setAttribute('allow','autoplay; fullscreen');\n  f.allowFullscreen = true;\n  wrap.appendChild(f);\n  c.parentNode.insertBefore(wrap, c);\n})();\n<\/script>`;
+    } else {
+      code = `<div id="${uid}" style="${responsive ? 'position:relative;width:100%;padding-bottom:56.25%;' : 'width:640px;max-width:100%;height:360px;position:relative;'}"></div>\n<script>\n(function(){\n  var d = document, s = d.createElement('iframe');\n  s.src = "${url}";\n  s.style.position = 'absolute';\n  s.style.top = 0; s.style.left = 0; s.style.width = '100%'; s.style.height = '100%'; s.style.border = 'none';\n  s.setAttribute('allow','autoplay; fullscreen');\n  s.allowFullscreen = true;\n  d.getElementById('${uid}').appendChild(s);\n})();\n<\/script>`;
+    }
+
+    document.getElementById('embedCode').textContent = code;
+    document.getElementById('embedDirectLink').value = url;
+    document.getElementById('embedPreviewIframe').src = url;
+  }
+
+  document.getElementById('btnCopyEmbed').addEventListener('click', () => copyToClipboard(document.getElementById('embedCode').textContent, 'btnCopyEmbed', 'Copiar código'));
+  document.getElementById('btnCopyLink').addEventListener('click', () => copyToClipboard(document.getElementById('embedDirectLink').value, 'btnCopyLink', 'Copiar'));
+
+  function copyToClipboard(text, btnId, resetLabel) {
+    const done = () => {
+      const btn = document.getElementById(btnId);
+      const original = btn.textContent;
+      btn.textContent = 'Copiado ✓';
+      setTimeout(() => { btn.textContent = resetLabel; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+  function fallbackCopy(text, cb) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    cb();
+  }
+
+  /* ==================== Analytics modal (mock) ==================== */
+  function seedFromId(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return () => { h = (h * 1103515245 + 12345) >>> 0; return (h % 1000) / 1000; };
+  }
+
+  function openAnalyticsModal(video) {
+    document.getElementById('analyticsTitle').textContent = 'Analytics — ' + video.name;
+    document.getElementById('statPlays').textContent = video.plays || 0;
+    const rand = seedFromId(video.id);
+    const bars = [];
+    let retention = 100;
+    for (let i = 0; i < 20; i++) {
+      retention -= rand() * 6;
+      if (retention < 5) retention = 5;
+      bars.push(Math.max(5, Math.round(retention)));
+    }
+    const avg = Math.round(bars.reduce((a, b) => a + b, 0) / bars.length);
+    document.getElementById('statAvgWatch').textContent = avg + '%';
+    document.getElementById('retentionChart').innerHTML = bars.map(h => `<div class="bar" style="height:${h}%"></div>`).join('');
+    openModal('analyticsModal');
+  }
+
+  /* ==================== Security page ==================== */
+  function loadSecurityForm() {
+    const sec = getSecurity();
+    document.getElementById('secDomainToggle').checked = !!sec.domainToggle;
+    document.getElementById('secDomainList').value = sec.domainList || '';
+    document.getElementById('secPassToggle').checked = !!sec.passToggle;
+    document.getElementById('secPassValue').value = sec.passValue || '';
+    document.getElementById('secWatermarkToggle').checked = !!sec.watermarkToggle;
+    document.getElementById('secWatermarkText').value = sec.watermarkText || '';
+  }
+  document.getElementById('btnSaveSecurity').addEventListener('click', () => {
+    saveSecurityObj({
+      domainToggle: document.getElementById('secDomainToggle').checked,
+      domainList: document.getElementById('secDomainList').value,
+      passToggle: document.getElementById('secPassToggle').checked,
+      passValue: document.getElementById('secPassValue').value,
+      watermarkToggle: document.getElementById('secWatermarkToggle').checked,
+      watermarkText: document.getElementById('secWatermarkText').value
+    });
+    flashSaveIndicator('secSaveIndicator');
+  });
+
+  /* ==================== Settings page ==================== */
+  function loadSettingsForm() {
+    const s = getSettings();
+    document.getElementById('defaultColorPicker').value = s.defaultColor || '#2563eb';
+    document.getElementById('defaultColorText').value = s.defaultColor || '#2563eb';
+    updateStorageUsage();
+  }
+  document.getElementById('defaultColorPicker').addEventListener('input', (e) => {
+    document.getElementById('defaultColorText').value = e.target.value;
+  });
+  document.getElementById('defaultColorText').addEventListener('input', (e) => {
+    document.getElementById('defaultColorPicker').value = e.target.value;
+  });
+  document.getElementById('btnSaveSettings').addEventListener('click', () => {
+    saveSettingsObj({ defaultColor: document.getElementById('defaultColorText').value || '#2563eb' });
+    flashSaveIndicator('settingsSaveIndicator');
+  });
+  document.getElementById('btnClearAll').addEventListener('click', () => {
+    if (confirm('Isso vai apagar todos os vídeos e configurações salvas neste navegador. Continuar?')) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(SECURITY_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+      location.reload();
+    }
+  });
+  function updateStorageUsage() {
+    const el = document.getElementById('storageUsage');
+    if (!el) return;
+    let total = 0;
+    [STORAGE_KEY, SECURITY_KEY, SETTINGS_KEY].forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v) total += v.length;
+    });
+    el.textContent = (total / 1024).toFixed(1) + ' KB';
+  }
+
+  /* ==================== Init ==================== */
+  renderLibrary();
+  updateStorageUsage();
+})();
+</script>
+</body>
+</html>
