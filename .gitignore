@@ -2,3 +2,10 @@
 .DS_Store
 node_modules
 *.log
+
+# JetBrains IDEs (IntelliJ, WebStorm, PhpStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
