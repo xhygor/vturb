@@ -833,6 +833,7 @@
         <button class="icon-btn" data-action="restore" data-id="${v.id}" title="Restaurar">${iconRestore()}</button>
         <button class="icon-btn danger" data-action="delete-forever" data-id="${v.id}" title="Excluir permanentemente">${iconTrash()}</button>
       ` : `
+        <button class="icon-btn" data-action="edit" data-id="${v.id}" title="Editar">${iconEdit()}</button>
         <button class="icon-btn" data-action="analytics" data-id="${v.id}" title="Analytics">${iconChart()}</button>
         <button class="icon-btn" data-action="embed" data-id="${v.id}" title="Embed">${iconCode()}</button>
         <button class="icon-btn danger" data-action="delete" data-id="${v.id}" title="Excluir">${iconTrash()}</button>
@@ -914,6 +915,7 @@
   function iconCode() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'; }
   function iconTrash() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'; }
   function iconRestore() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>'; }
+  function iconEdit() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>'; }
 
   /* ==================== Upload modal ==================== */
   const uploadModal = document.getElementById('uploadModal');
@@ -1103,7 +1105,12 @@
   function buildEmbedParams(video) {
     const params = new URLSearchParams();
     if (video.url) params.set('v', video.url);
-    if (video.poster) params.set('poster', video.poster);
+    // O poster (miniatura) não viaja no link: é só cosmético no player, e
+    // embutir a imagem inteira (base64) na URL infla o link e o payload
+    // assinado — qualquer corrupção/truncamento dele (copiar/colar, limite
+    // de URL de terceiros) derrubaria a assinatura do vídeo inteiro. A
+    // miniatura da tabela "Meus Vídeos" continua funcionando normalmente,
+    // pois é só local (localStorage), sem passar pelo embed.
     // "id" e "kv" definem qual chave derivada assina este link (ver lib/hmac.js).
     params.set('id', video.id);
     params.set('kv', String(video.embedKeyVersion || 1));
