@@ -43,17 +43,17 @@ Painéis de configuração à esquerda (tudo salvo automaticamente no `localStor
 
 | Painel | O que controla |
 |---|---|
-| Estilo | cor principal, cor de fundo, cantos arredondados, quais controles do player ficam visíveis |
+| Estilo | cor principal, cor de fundo, cantos arredondados, quais controles do player ficam visíveis (play grande/pequeno, desativar pausa, barra de progresso, tempo, voltar/avançar 10s, volume, tela cheia, velocidade) |
 | Progresso Inteligente | cor e altura da barra de progresso |
-| Smart Autoplay | liga/desliga autoplay mudo, texto do overlay "toque para ativar o som", trecho inicial |
+| Smart Autoplay | liga/desliga autoplay mudo, texto do overlay "toque para ativar o som", trecho inicial (segundos de prévia muda antes de pausar sozinho) |
 | Botões de Ação | texto, subtexto, link de checkout, tempo (em segundos) para o CTA aparecer, cor |
-| Continuar Assistindo | mensagem e textos dos botões continuar/reiniciar (configuração salva; não afeta o player embedável) |
-| Pixels | ID do pixel e porcentagens de disparo (configuração salva; não afeta o player embedável) |
-| Opções de Reprodução | smart pause, recomeçar, velocidade, fullscreen, PiP (configuração salva; não afeta o player embedável) |
+| Continuar Assistindo | mensagem e textos dos botões continuar/reiniciar; salva o progresso no `localStorage` do navegador e oferece retomar/recomeçar ao reabrir o player |
+| Pixels | ID do Meta Pixel e porcentagens de disparo; carrega o `fbevents.js` real e dispara `PageView` + `VideoProgress` nas porcentagens configuradas |
+| Opções de Reprodução | smart pause (pausa/retoma sozinho ao sair da tela ou trocar de aba), recomeçar ao terminar, velocidade, fullscreen (desktop/mobile), Picture-in-Picture |
 
 À direita fica o **preview ao vivo** do `player.html` dentro de um iframe, com toggle **Desktop / Mobile**.
 
-> Apenas os campos de Estilo/Progresso/Autoplay/Botão de Ação realmente mudam o comportamento do `player.html`, pois são os únicos parâmetros que ele lê da URL (veja a tabela abaixo). Os demais painéis existem para fidelidade visual ao dashboard original e ficam salvos, mas não são lidos pelo player.
+> Todos os painéis acima afetam o `player.html` de verdade: a configuração inteira do vídeo viaja para o player num único parâmetro `cfg` (JSON em base64url) — veja a tabela de parâmetros abaixo.
 
 ### Embed
 No botão **Embed** (no topo da edição ou na tabela de vídeos):
@@ -63,7 +63,9 @@ No botão **Embed** (no topo da edição ou na tabela de vídeos):
 - Botão para copiar o código/link.
 
 ### Segurança e Configurações
-Páginas com opções ilustrativas (whitelist de domínio, senha, marca d'água, cor padrão do player, uso de armazenamento local, limpar todos os dados).
+- **Marca d'água** e **whitelist de domínio** (Segurança) são reais: a marca d'água é sobreposta no vídeo em todo player embedado, e a whitelist é unida (não substitui) com a lista de domínios específica de cada vídeo, validada pelo `middleware.js` do mesmo jeito.
+- **Senha para assistir** (Segurança) é só ilustrativa por decisão de produto — o controle de acesso real do player é a assinatura HMAC + restrição de domínio já existentes, não uma senha client-side.
+- Cor padrão do player, uso de armazenamento local e limpar todos os dados já são reais (usados na criação de novos vídeos e na limpeza do `localStorage`).
 
 ## Player (`player.html`)
 
@@ -73,21 +75,21 @@ Parâmetros de URL aceitos:
 |---|---|---|
 | `v` | URL do vídeo (`https://...` ou `blob:...`) | — |
 | `poster` | Imagem de capa (URL ou `data:` URI) | — |
-| `cta_url` | Link do botão de ação | — |
-| `cta_text` | Texto do botão | `Comprar agora` |
-| `cta_time` | Segundos até o botão aparecer | `0` |
-| `cta_color` | Cor do botão | `#2563eb` |
-| `cta_sub` | Subtexto abaixo do botão | — |
-| `bar_color` | Cor da barra de progresso | `#2563eb` |
-| `mute_text` | Texto do aviso "toque para ativar o som" | `Toque para ativar o som` |
-| `autoplay` | `1` autoplay mudo / `0` desativado | `1` |
+| `id` / `kv` | Identificam o vídeo e a versão da chave de assinatura (ver [Links de embed assinados](#links-de-embed-assinados-evita-que-terceiros-usem-seus-vídeos)) | — |
+| `domains` | Lista de domínios permitidos (por vídeo + whitelist global da Segurança), separada por vírgula | — |
+| `cfg` | Todo o resto da configuração do vídeo (Estilo, Progresso, Autoplay, Botão de Ação, Continuar Assistindo, Pixels, Reprodução) + marca d'água, como JSON em base64url | — |
+| `sig` | Assinatura HMAC do restante dos parâmetros (ver seção de segurança) | — |
+
+O dashboard nunca monta `cfg` na mão — é sempre gerado pelo modal de Embed a partir da configuração atual do vídeo, então não há necessidade de montar esse JSON manualmente.
 
 Comportamento:
-- Autoplay mudo; clique na tela desmuta e/ou dá play/pause.
-- Sem controles nativos do navegador — barra de progresso própria (clicável e arrastável).
-- Aviso de som some sozinho em 3 segundos.
-- Botão de CTA aparece no tempo configurado e abre `cta_url` em nova aba.
-- Teclado: `Espaço` play/pause, `←`/`→` voltar/avançar 10s.
+- Autoplay mudo (se ativado); clique na tela desmuta e/ou dá play/pause; "trecho inicial" pausa sozinho após N segundos se o usuário ainda não interagiu.
+- Barra de progresso própria (clicável e arrastável), com cor/altura configuráveis; nova barra de controles (play/pausa, voltar/avançar 10s, tempo, volume, velocidade, PiP, tela cheia) conforme os toggles de Estilo.
+- Botão de CTA aparece no tempo configurado e abre o link em nova aba.
+- Continuar Assistindo guarda o progresso no `localStorage` (por `id` do vídeo) e oferece retomar/recomeçar ao reabrir.
+- Pixels carrega o Meta Pixel real (`fbevents.js`) e dispara eventos nas porcentagens configuradas.
+- Smart pause, recomeçar ao terminar, velocidade e fullscreen/PiP seguem as Opções de Reprodução configuradas.
+- Teclado: `Espaço` play/pause (respeita "desativar pausa"), `←`/`→` voltar/avançar 10s.
 
 ## Deploy na Vercel
 
@@ -106,12 +108,12 @@ O projeto já vem com o que é necessário para um deploy razoavelmente seguro, 
 
 ### Links de embed assinados (evita que terceiros usem seus vídeos)
 
-Sem essa proteção, qualquer pessoa poderia montar na mão uma URL `player.html?v=...` apontando para a URL de vídeo de outra pessoa, ou copiar um link de embed seu e trocar o `cta_url` para outro destino. Para evitar isso:
+Sem essa proteção, qualquer pessoa poderia montar na mão uma URL `player.html?v=...` apontando para a URL de vídeo de outra pessoa, ou copiar um link de embed seu e trocar o link de checkout do botão de ação (dentro do `cfg`) para outro destino. Para evitar isso:
 
 1. Você define `PLAYER_SIGNING_SECRET` (uma string aleatória) como variável de ambiente do projeto na Vercel — **só ela** conhece esse segredo mestre.
 2. Sempre que o dashboard gera ou atualiza um link de player (preview da edição, modal de Embed), ele chama `/api/sign-embed` — que já está atrás do Basic Auth — mandando os parâmetros do vídeo, incluindo `id` (id do vídeo) e `kv` (versão da chave dele, ver abaixo). Essa função deriva uma **chave específica daquele vídeo** (`HMAC(PLAYER_SIGNING_SECRET, id + ':' + kv)`) e assina os parâmetros com ela: `sig = HMAC(chave_do_vídeo, parâmetros)`. Nem o segredo mestre nem a chave derivada saem do servidor — só o `sig` (resultado) viaja na URL.
 3. O link gerado carrega esse `sig` (e o `id`/`kv` usados para derivá-lo) como parâmetros: `player.html?v=...&id=...&kv=1&sig=...`.
-4. Toda vez que `/player.html` é acessado (por qualquer pessoa, em qualquer site), o middleware repete o mesmo cálculo a partir dos parâmetros da própria URL e compara com o `sig` recebido. Se qualquer parâmetro foi alterado (vídeo trocado, `cta_url` adulterado, link forjado para um `id` que não é seu) ou o `sig` não bater, a resposta é `403` e o player não carrega.
+4. Toda vez que `/player.html` é acessado (por qualquer pessoa, em qualquer site), o middleware repete o mesmo cálculo a partir dos parâmetros da própria URL e compara com o `sig` recebido. Se qualquer parâmetro foi alterado (vídeo trocado, `cfg` adulterado — incluindo o link de checkout do botão de ação —, link forjado para um `id` que não é seu) ou o `sig` não bater, a resposta é `403` e o player não carrega.
 
 Por que HMAC (segredo compartilhado) em vez de par de chaves assimétrico: quem assina (a função `/api/sign-embed`) e quem valida (o middleware) são o mesmo lado de confiança — você. Um par de chaves público/privada faz sentido quando assinante e verificador são partes diferentes; aqui só adicionaria complexidade sem ganho de segurança.
 
@@ -127,7 +129,7 @@ Cada vídeo tem sua própria chave derivada (a partir do segredo mestre + o `id`
 
 ### Restrição por domínio
 
-No modal de Embed, o campo **"Domínios permitidos"** deixa você listar (um por linha) em quais domínios aquele vídeo pode ser exibido — por exemplo, a página de vendas onde ele está publicado. Esse campo faz parte do payload assinado (não dá pra tirar a restrição editando a URL sem invalidar o `sig`). Quando configurado:
+No modal de Embed, o campo **"Domínios permitidos"** deixa você listar (um por linha) em quais domínios aquele vídeo pode ser exibido — por exemplo, a página de vendas onde ele está publicado. A página global de **Segurança** também tem uma whitelist de domínio, que quando ligada é **somada** (não substitui) à lista específica de cada vídeo — as duas viram o mesmo parâmetro `domains`. Esse parâmetro faz parte do payload assinado (não dá pra tirar a restrição editando a URL sem invalidar o `sig`). Quando configurado:
 
 - O middleware verifica o cabeçalho `Referer` de quem carregou `/player.html` e só deixa passar se o domínio bater com um da lista (ou vier do próprio dashboard, pra não travar o seu preview enquanto edita).
 - Deixe o campo vazio para não restringir (qualquer domínio pode embutir o vídeo).

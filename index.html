@@ -202,6 +202,7 @@
   }
   .field-row input:focus, .field-row select:focus, .field-row textarea:focus { border-color: var(--blue); }
   .field-row input[type=range] { width: 100%; accent-color: var(--blue); }
+  .field-hint { font-size: 11.5px; color: var(--text-muted); margin: 6px 0 0; line-height: 1.4; }
   .color-input { display: flex; gap: 8px; align-items: center; }
   .color-input input[type=color] { width: 34px; height: 34px; padding: 0; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
   .color-input input[type=text] { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; outline: none; }
@@ -464,7 +465,12 @@
             <div class="accordion" data-panel="smartProgress">
               <button class="accordion-head" type="button"><span>📊 Progresso Inteligente</span><span class="chev">▾</span></button>
               <div class="accordion-body">
-                <div class="toggle-row"><span>Ativar</span><label class="switch"><input type="checkbox" data-path="smartProgress.enabled"><span class="slider"></span></label></div>
+                <div class="toggle-row"><span>Ativar (barra "engana" o espectador)</span><label class="switch"><input type="checkbox" data-path="smartProgress.enabled"><span class="slider"></span></label></div>
+                <div class="field-row">
+                  <label>Aparentar concluído em <span class="field-value" data-value-for="smartProgress.finishAtPercent" data-unit="%">80%</span> do vídeo real</label>
+                  <input type="range" min="30" max="95" value="80" data-path="smartProgress.finishAtPercent">
+                  <p class="field-hint">A barra sobe rápido e "quase termina" antes da hora, mesmo com vídeo restando — só volta a 100% quando o vídeo realmente acaba.</p>
+                </div>
                 <div class="field-row">
                   <label>Cor da barra</label>
                   <div class="color-input">
@@ -718,7 +724,7 @@
           time: true, back10: true, forward10: true, volume: true, fullscreen: true, speed: true
         }
       },
-      smartProgress: { enabled: true, color: defColor, height: 5 },
+      smartProgress: { enabled: false, color: defColor, height: 5, finishAtPercent: 80 },
       smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som', initialSnippet: 3 },
       actionButton: { enabled: false, text: 'Comprar agora', subtext: '', checkoutLink: '', timeToAppear: 5, color: defColor },
       continueWatching: { enabled: false, message: 'Você estava assistindo este vídeo', continueText: 'Continuar', restartText: 'Recomeçar', color: defColor },
@@ -1087,29 +1093,42 @@
     });
   });
 
+  // Base64url (sem +, / ou = de padding) pra caber de boa numa query string e
+  // dar pra decodificar no player.html com o fromBase64Url espelhado lá.
+  function toBase64Url(str) {
+    const b64 = btoa(unescape(encodeURIComponent(str)));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
   function buildEmbedParams(video) {
-    const c = video.config;
     const params = new URLSearchParams();
     if (video.url) params.set('v', video.url);
     if (video.poster) params.set('poster', video.poster);
-    if (c.actionButton.enabled && c.actionButton.checkoutLink) {
-      params.set('cta_url', c.actionButton.checkoutLink);
-      params.set('cta_text', c.actionButton.text || 'Comprar agora');
-      params.set('cta_time', c.actionButton.timeToAppear ?? 5);
-      params.set('cta_color', c.actionButton.color || c.style.primaryColor);
-      if (c.actionButton.subtext) params.set('cta_sub', c.actionButton.subtext);
-    }
-    params.set('bar_color', (c.smartProgress.enabled ? c.smartProgress.color : c.style.primaryColor) || '#2563eb');
-    params.set('mute_text', c.smartAutoplay.overlayText || 'Toque para ativar o som');
-    params.set('autoplay', c.smartAutoplay.enabled ? '1' : '0');
-    // "id" e "kv" definem qual chave derivada assina este link (ver lib/hmac.js);
-    // "domains" (se houver) fica dentro do payload assinado, então não dá pra
-    // adulterar a restrição de domínio sem invalidar a assinatura.
+    // "id" e "kv" definem qual chave derivada assina este link (ver lib/hmac.js).
     params.set('id', video.id);
     params.set('kv', String(video.embedKeyVersion || 1));
-    if (video.allowedDomains && video.allowedDomains.length) {
-      params.set('domains', video.allowedDomains.join(','));
+
+    // "domains" fica dentro do payload assinado, então não dá pra adulterar a
+    // restrição sem invalidar a assinatura. Une a whitelist específica do
+    // vídeo com a whitelist global da página de Segurança (se ligada) —
+    // mesmo mecanismo de validação em middleware.js pros dois casos.
+    const security = getSecurity();
+    const domainSet = new Set(video.allowedDomains || []);
+    if (security.domainToggle && security.domainList) {
+      security.domainList.split(/[\n,]/).map(d => d.trim().toLowerCase()).filter(Boolean)
+        .forEach(d => domainSet.add(d));
     }
+    if (domainSet.size) params.set('domains', [...domainSet].join(','));
+
+    // Todo o resto da configuração do editor (Estilo, Progresso, Autoplay,
+    // Botão de Ação, Continuar Assistindo, Pixels, Reprodução) + a marca
+    // d'água global viaja num único parâmetro assinado; o player.html decodifica.
+    const cfgPayload = {
+      ...video.config,
+      watermark: (security.watermarkToggle && security.watermarkText) ? security.watermarkText : ''
+    };
+    params.set('cfg', toBase64Url(JSON.stringify(cfgPayload)));
+
     return params;
   }
 
