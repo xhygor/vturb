@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-12T04:46:46.025Z",
+        "reason": "user confirmed: tipografia do player mantida como Inter"
+      }
+    ]
+  }
+}
