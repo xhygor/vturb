@@ -303,7 +303,11 @@
   const autoplayEnabled = !!cfg.smartAutoplay.enabled;
 
   let ctaShown = false;
-  let userMuted = true;
+  /* audioPending: o autoplay comecou mudo e o som ainda nao foi ligado de fato.
+     Nunca assumir que `video.muted = false` foi aceito: Safari e os WebViews do
+     Facebook/Instagram recusam o unmute enquanto a sessao de audio nao foi ativada
+     por um play() autorizado por gesto. O estado real e sempre video.muted. */
+  let audioPending = true;
   let snippetPaused = false;
 
   /* ---------- Bloqueio de avanço (não permite pular além do que já foi assistido) ---------- */
@@ -335,13 +339,37 @@
     volumeBtn.innerHTML = video.muted ? ICON_VOL_OFF : ICON_VOL_ON;
   }
 
-  function tryAutoplay() {
-    if (!autoplayEnabled) { updatePlayIcon(); return; }
-    video.muted = true;
-    userMuted = true;
-    updateVolumeIcon();
+  function playSafe() {
     const p = video.play();
     if (p && p.catch) p.catch(() => { updatePlayIcon(); });
+    return p;
+  }
+
+  /* Reconcilia o estado interno com o que o navegador realmente aplicou */
+  function syncAudioState() {
+    if (!video.muted) { audioPending = false; muteHint.classList.add('hidden'); }
+    updateVolumeIcon();
+  }
+
+  /* Liga o som de fato. Chamar sempre dentro do gesto do usuario: no Safari e nos
+     WebViews do Facebook/Instagram o unmute so vale acompanhado de um play() do
+     mesmo gesto e pode ser revertido em silencio - por isso repetimos a tentativa. */
+  function enableAudio() {
+    video.muted = false;
+    video.volume = 1;
+    const p = playSafe();
+    if (video.muted) { video.muted = false; video.volume = 1; }
+    if (p && p.then) p.then(() => { if (video.muted) video.muted = false; syncAudioState(); }, () => {});
+    syncAudioState();
+  }
+
+  function tryAutoplay() {
+    if (!autoplayEnabled) { updatePlayIcon(); return; }
+    /* o usuario ja pediu o som: um loadedmetadata atrasado nao pode re-mutar */
+    if (!audioPending) { playSafe(); return; }
+    video.muted = true;
+    updateVolumeIcon();
+    playSafe();
   }
 
   video.addEventListener('loadedmetadata', () => {
@@ -349,28 +377,36 @@
   });
   video.addEventListener('play', updatePlayIcon);
   video.addEventListener('pause', updatePlayIcon);
+  video.addEventListener('volumechange', syncAudioState);
 
   setTimeout(() => { muteHint.classList.add('hidden'); }, 3000);
 
   function togglePlay() {
-    if (video.paused) video.play();
+    if (video.paused) playSafe();
     else if (!disablePause) video.pause();
   }
 
+  /* Controle explicito pelo botao de volume. Mutar por aqui e uma decisao do
+     usuario: os toques na tela voltam a ser play/pausa. */
   function setMuted(m) {
-    video.muted = m;
-    userMuted = m;
-    if (!m) muteHint.classList.add('hidden');
+    if (!m) { enableAudio(); return; }
+    video.muted = true;
+    audioPending = false;
     updateVolumeIcon();
   }
-  function unmute() { if (userMuted) setMuted(false); }
 
   clickLayer.addEventListener('click', () => {
-    if (userMuted) { unmute(); if (video.paused) video.play(); }
+    if (audioPending) enableAudio();
     else togglePlay();
   });
-  centerPlay.addEventListener('click', (e) => { e.stopPropagation(); unmute(); video.play(); });
-  smallPlayBtn.addEventListener('click', (e) => { e.stopPropagation(); if (userMuted) unmute(); togglePlay(); });
+  centerPlay.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (audioPending) enableAudio(); else playSafe();
+  });
+  smallPlayBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (audioPending) enableAudio(); else togglePlay();
+  });
   volumeBtn.addEventListener('click', (e) => { e.stopPropagation(); setMuted(!video.muted); });
   back10Btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -472,7 +508,7 @@
     }
 
     const snippet = parseFloat(cfg.smartAutoplay.initialSnippet) || 0;
-    if (autoplayEnabled && snippet > 0 && !snippetPaused && userMuted && video.currentTime >= snippet) {
+    if (autoplayEnabled && snippet > 0 && !snippetPaused && audioPending && video.currentTime >= snippet) {
       snippetPaused = true;
       video.pause();
     }
