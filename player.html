@@ -116,7 +116,11 @@
 </head>
 <body>
 <div id="stage">
-  <video id="video" playsinline muted></video>
+  <!-- preload="auto": o padrao do navegador e buscar so os metadados, e no 4G isso
+       vira varios segundos de retangulo preto antes do primeiro quadro. Quem chega
+       de anuncio desiste nesse intervalo. Quando houver `poster` na URL do embed,
+       ele cobre o que sobrar dessa espera. -->
+  <video id="video" playsinline muted preload="auto"></video>
   <div id="clickLayer"></div>
 
   <div id="watermark"></div>
@@ -217,11 +221,15 @@
       }
     },
     smartProgress: { enabled: false, color: '#2563eb', height: 5, finishAtPercent: 80 },
-    smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som', initialSnippet: 0 },
+    /* initialSnippet saiu: tocar alguns segundos e congelar esperando o toque
+       deixava o visitante olhando para um quadro parado sem entender o motivo.
+       Configuracoes antigas que ainda trazem o campo sao simplesmente ignoradas. */
+    smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som' },
     actionButton: { enabled: false, text: 'Comprar agora', subtext: '', checkoutLink: '', timeToAppear: 5, color: '#2563eb' },
     continueWatching: { enabled: false, message: 'Você estava assistindo este vídeo', continueText: 'Continuar', restartText: 'Recomeçar', color: '#2563eb' },
     pixels: { enabled: false, pixelId: '', firePercentages: [25, 50, 75, 95] },
-    playback: { smartPause: true, restart: false, speed: 'auto', fullscreenDesktop: true, fullscreenMobile: true, pip: false },
+    /* smartPause saiu junto: ver o bloco "Volta do segundo plano" la embaixo. */
+    playback: { restart: false, speed: 'auto', fullscreenDesktop: true, fullscreenMobile: true, pip: false },
     watermark: ''
   };
 
@@ -308,7 +316,7 @@
      Facebook/Instagram recusam o unmute enquanto a sessao de audio nao foi ativada
      por um play() autorizado por gesto. O estado real e sempre video.muted. */
   let audioPending = true;
-  let snippetPaused = false;
+  let restartingForAudio = false;
 
   /* ---------- Bloqueio de avanço (não permite pular além do que já foi assistido) ---------- */
   let maxTime = 0;
@@ -331,6 +339,7 @@
   }
 
   function updatePlayIcon() {
+    if (restartingForAudio) return;   /* pausa tecnica do enableAudio: nao pisca o botao */
     centerPlay.classList.toggle('hide', !bigPlayEnabled || !video.paused);
     smallPlayBtn.innerHTML = video.paused ? ICON_PLAY : ICON_PAUSE;
   }
@@ -345,21 +354,33 @@
     return p;
   }
 
-  /* Reconcilia o estado interno com o que o navegador realmente aplicou */
+  /* Reconcilia o estado interno com o que o navegador realmente aplicou.
+     Só considera o som ligado quando ele esta de fato saindo: sem mudo E tocando. */
   function syncAudioState() {
-    if (!video.muted) { audioPending = false; muteHint.classList.add('hidden'); }
+    if (!video.muted && !video.paused) { audioPending = false; muteHint.classList.add('hidden'); }
     updateVolumeIcon();
   }
 
-  /* Liga o som de fato. Chamar sempre dentro do gesto do usuario: no Safari e nos
-     WebViews do Facebook/Instagram o unmute so vale acompanhado de um play() do
-     mesmo gesto e pode ser revertido em silencio - por isso repetimos a tentativa. */
+  /* Liga o som de fato. Chamar SEMPRE dentro do gesto do usuario.
+     Os navegadores mobile (Safari, Chrome Android e os WebViews do Facebook/Instagram)
+     so liberam a saida de audio num play() autorizado por gesto - e play() em video
+     que JA esta tocando e no-op, nao serve. Por isso pausamos antes: assim o play()
+     nasce dentro do gesto e o audio e liberado de uma vez, sem varios toques. */
   function enableAudio() {
+    const estavaTocando = !video.paused;
+    restartingForAudio = estavaTocando;
+    if (estavaTocando) video.pause();
     video.muted = false;
     video.volume = 1;
     const p = playSafe();
-    if (video.muted) { video.muted = false; video.volume = 1; }
-    if (p && p.then) p.then(() => { if (video.muted) video.muted = false; syncAudioState(); }, () => {});
+    restartingForAudio = false;
+    if (p && p.then) {
+      p.then(syncAudioState, () => {
+        /* o navegador recusou tocar com audio: nao deixa o video parado */
+        if (estavaTocando) { video.muted = true; playSafe(); }
+        syncAudioState();
+      });
+    }
     syncAudioState();
   }
 
@@ -378,6 +399,7 @@
   video.addEventListener('play', updatePlayIcon);
   video.addEventListener('pause', updatePlayIcon);
   video.addEventListener('volumechange', syncAudioState);
+  video.addEventListener('playing', syncAudioState);
 
   setTimeout(() => { muteHint.classList.add('hidden'); }, 3000);
 
@@ -507,12 +529,6 @@
       ctaBtn.classList.add('show');
     }
 
-    const snippet = parseFloat(cfg.smartAutoplay.initialSnippet) || 0;
-    if (autoplayEnabled && snippet > 0 && !snippetPaused && audioPending && video.currentTime >= snippet) {
-      snippetPaused = true;
-      video.pause();
-    }
-
     if (cfg.continueWatching.enabled) {
       const sec = Math.floor(video.currentTime);
       if (sec !== lastSavedSec) { lastSavedSec = sec; saveProgress(); }
@@ -533,22 +549,26 @@
     if (video.currentTime > maxTime + SEEK_EPSILON) video.currentTime = maxTime;
   });
 
-  let autoPaused = false;
-  if (cfg.playback.smartPause) {
-    if ('IntersectionObserver' in window) {
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting && !video.paused) { autoPaused = true; video.pause(); }
-          else if (entry.isIntersecting && autoPaused) { autoPaused = false; video.play().catch(() => {}); }
-        });
-      }, { threshold: 0.4 });
-      io.observe(stage);
-    }
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden && !video.paused) { autoPaused = true; video.pause(); }
-      else if (!document.hidden && autoPaused) { autoPaused = false; video.play().catch(() => {}); }
-    });
-  }
+  /* ---------- Volta do segundo plano ---------- */
+  /*
+     O player nao pausa mais por conta propria - nem ao sair da viewport, nem ao
+     perder o foco da aba. Pausar sozinho custava caro justamente onde o trafego
+     chega: no WebView do Instagram, o quadro congelado de um video pausado vira
+     retangulo preto assim que o sistema descarta a textura, e o visitante le isso
+     como player quebrado. Rolar a pagina para ver a oferta tambem parava a VSL.
+     O que o sistema faz continua valendo: o iOS e o Android pausam o video quando
+     o app vai para segundo plano. Dai o unico automatismo que sobra e o retorno -
+     sem ele, quem atende uma notificacao no meio da VSL volta para um video parado
+     e precisa descobrir sozinho que tem de tocar na tela para continuar. */
+  let pausadoPeloSistema = false;
+  video.addEventListener('pause', () => {
+    if (document.hidden) pausadoPeloSistema = true;
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !pausadoPeloSistema) return;
+    pausadoPeloSistema = false;
+    playSafe();
+  });
 
   const SPEED_MAP = { auto: 1, low: 0.75, medium: 1.25, high: 1.75 };
   const SPEED_ORDER = ['auto', 'low', 'medium', 'high'];

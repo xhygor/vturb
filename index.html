@@ -493,10 +493,6 @@
                   <label>Texto de overlay (som)</label>
                   <input type="text" data-path="smartAutoplay.overlayText">
                 </div>
-                <div class="field-row">
-                  <label>Trecho inicial (s) <span class="field-value" data-value-for="smartAutoplay.initialSnippet" data-unit="s">3s</span></label>
-                  <input type="range" min="0" max="15" data-path="smartAutoplay.initialSnippet">
-                </div>
               </div>
             </div>
 
@@ -575,7 +571,6 @@
             <div class="accordion" data-panel="playback">
               <button class="accordion-head" type="button"><span>⚡ Opções de Reprodução</span><span class="chev">▾</span></button>
               <div class="accordion-body">
-                <div class="toggle-row"><span>Smart pause</span><label class="switch"><input type="checkbox" data-path="playback.smartPause"><span class="slider"></span></label></div>
                 <div class="toggle-row"><span>Recomeçar ao terminar</span><label class="switch"><input type="checkbox" data-path="playback.restart"><span class="slider"></span></label></div>
                 <div class="field-row">
                   <label>Velocidade</label>
@@ -725,11 +720,11 @@
         }
       },
       smartProgress: { enabled: false, color: defColor, height: 5, finishAtPercent: 80 },
-      smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som', initialSnippet: 3 },
+      smartAutoplay: { enabled: true, overlayText: 'Toque para ativar o som' },
       actionButton: { enabled: false, text: 'Comprar agora', subtext: '', checkoutLink: '', timeToAppear: 5, color: defColor },
       continueWatching: { enabled: false, message: 'Você estava assistindo este vídeo', continueText: 'Continuar', restartText: 'Recomeçar', color: defColor },
       pixels: { enabled: false, pixelId: '', firePercentages: [25, 50, 75, 95] },
-      playback: { smartPause: true, restart: false, speed: 'auto', fullscreenDesktop: true, fullscreenMobile: true, pip: false }
+      playback: { restart: false, speed: 'auto', fullscreenDesktop: true, fullscreenMobile: true, pip: false }
     };
   }
 
